@@ -167,13 +167,10 @@ func NewPodIPMetricsCollector() (Collector, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error creating clientset: %v", err)
 	}
-
-	// Add the nodeName initialization here
 	nodeName := os.Getenv("HOSTNAME")
 	if nodeName == "" {
 		return nil, fmt.Errorf("error getting hostname: HOSTNAME environment variable not set")
 	}
-
 	return &podIPMetricsCollector{
 		clientset: clientset,
 		nodeName:  nodeName,
@@ -440,6 +437,7 @@ func (c *podIPMetricsCollector) Update(ch chan<- prometheus.Metric) error {
 			glog.Errorf("calculateAssignedIP returned error: %v", err)
 		}
 	}
+
 	c.populateMetrics(ch)
 	return nil
 }
