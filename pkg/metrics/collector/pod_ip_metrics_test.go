@@ -302,10 +302,17 @@ func TestCalculateAssignedIP(t *testing.T) {
 			wantAssignedIPv6Count: 7,
 		},
 		{
-			desc:                  "Two different podCIDR and one podCIDRs",
+			desc:                  "Two same podCIDR and no podCIDRs",
 			podCIDR:               "10.0.0.0/24",
-			podCIDRs:              []string{"10.0.1.0/24", "2600:1900::/125"},
-			wantAssignedIPv4Count: 508,
+			podCIDRs:              []string{"10.0.0.0/24"},
+			wantAssignedIPv4Count: 254,
+			wantAssignedIPv6Count: 0,
+		},
+		{
+			desc:                  "One podCIDR and one podCIDRs",
+			podCIDR:               "10.0.0.0/24",
+			podCIDRs:              []string{"2600:1900::/125"},
+			wantAssignedIPv4Count: 254,
 			wantAssignedIPv6Count: 7,
 		},
 	}
@@ -316,6 +323,7 @@ func TestCalculateAssignedIP(t *testing.T) {
 			fakeClient := fake.NewSimpleClientset(node)
 			mc := &podIPMetricsCollector{
 				clientset: fakeClient,
+				nodeName:  "test-node",
 			}
 
 			err := mc.calculateAssignedIP()
