@@ -60,23 +60,30 @@ func NewConntrackCollector() (Collector, error) {
 type conntrackStats struct {
 	insertFailed uint64
 	drop         uint64
+	earlyDrop    uint64
+	insert  uint64
+
 }
 
 func (c *conntrackStats) merge(other *conntrackStats) {
 	c.insertFailed += other.insertFailed
 	c.drop += other.drop
+	c.earlyDrop += other.earlyDrop
+	c.insert += other.insert
 }
 
 type conntrackIndices struct {
 	numFields    int
 	insertFailed int
 	drop         int
+	earlyDrop     int
+	insert   int
 }
 
 // parseHeader parses the conntrack header line, returning the
 // indexes of the fields we wish to extract.
 func parseHeader(line string) (*conntrackIndices, error) {
-	indices := &conntrackIndices{insertFailed: -1, drop: -1}
+	indices := &conntrackIndices{insertFailed: -1, drop: -1, earlyDrop: -1, insert: -1}
 	nameParts := strings.Split(line, " ")
 	indices.numFields = len(nameParts)
 	for i, v := range nameParts {
@@ -85,9 +92,12 @@ func parseHeader(line string) (*conntrackIndices, error) {
 			indices.insertFailed = i
 		case "drop":
 			indices.drop = i
+	    case "early_drop":
+		    indices.earlyDrop = i
+	    case "insert":
+		    indices.insert = i
 		}
-	}
-	if indices.insertFailed == -1 || indices.drop == -1 {
+	if indices.insertFailed == -1 || indices.drop == -1 || indices.earlyDrop == -1 || indices.insert == -1{
 		return nil, fmt.Errorf("invalid header %q: doesn't have target fields", line)
 	}
 	return indices, nil
@@ -108,8 +118,10 @@ func parseConntrackData(line string, indices *conntrackIndices) (*conntrackStats
 	}{
 		{"insert_failed", &stats.insertFailed, indices.insertFailed},
 		{"drop", &stats.drop, indices.drop},
+		{"early_drop", &stats.earlyDrop, indices.earlyDrop},
+		{"insert", &stats.insert, indices.insert},
 	} {
-		v, err := strconv.ParseUint(valueParts[e.index], 16, 32)
+		v, err := strconv.ParseUint(valueParts[e.index], 10, 64)
 		if err != nil {
 			return nil, fmt.Errorf("input does not have a valid %q field (line = %q)", e.name, line)
 		}
@@ -174,5 +186,7 @@ func (c *conntrackCollector) Update(ch chan<- prometheus.Metric) error {
 	}
 	ch <- prometheus.MustNewConstMetric(conntrackErrorCountDesc, prometheus.CounterValue, float64(stats.insertFailed), "insert_failed")
 	ch <- prometheus.MustNewConstMetric(conntrackErrorCountDesc, prometheus.CounterValue, float64(stats.drop), "drop")
+	ch <- prometheus.MustNewConstMetric(conntrackErrorCountDesc, prometheus.CounterValue, float64(stats.earlyDrop), "early_drop")
+	ch <- prometheus.MustNewConstMetric(conntrackErrorCountDesc, prometheus.CounterValue, float64(stats.insert), "insert")
 	return nil
 }
